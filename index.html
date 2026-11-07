@@ -198,7 +198,7 @@ function dibujarGrupo(rapida) {
   const antes = conClase.filter(d => d < hoy).slice(-2), despues = conClase.filter(d => d > hoy).slice(0, 2);
   const dias = antes.concat(conClase.indexOf(hoy) >= 0 ? [hoy] : [], despues);
   h += '<h2>📅 Horario</h2>';
-  if (!dias.length) h += '<p class="vacia">El horario de Carlos de estos días todavía no está cargado.</p>';
+  if (!dias.length) h += '<p class="vacia">El horario todavía no está cargado.</p>';
   else {
     h += '<div class="franja">';
     dias.forEach(d => {
@@ -237,21 +237,19 @@ function dibujarGrupo(rapida) {
     });
     return b;
   };
-  if (!ref && !sinNota.length) h += '<p class="vacia">Todavía no hay observaciones de la clase para este grupo.</p>';
-  sinNota.forEach(d => h += bloqueDia(d));
-  if (ref) h += bloqueDia(ref);
-  const mas = diasCon.filter(d => d < (ref || '9999'));
-  if (mas.length) {
-    if (VER_MAS_C) mas.forEach(d => h += bloqueDia(d));
-    else h += '<button class="mas" id="masC">Ver más anteriores (' + mas.length + ' días)</button>';
+  const todosDias = Object.keys(turnosDia).filter(d => d <= hoy).sort().reverse();
+  if (!todosDias.length) h += '<p class="vacia">Todavía no hay observaciones de la clase para este grupo.</p>';
+  todosDias.slice(0, 2).forEach(d => h += bloqueDia(d));
+  if (todosDias.length > 2) {
+    if (VER_MAS_C) todosDias.slice(2).forEach(d => h += bloqueDia(d));
+    else h += '<button class="mas" id="masC">Ver más anteriores (' + (todosDias.length - 2) + ' días)</button>';
   }
-  // --- grupales: 7 días ---
+  // --- grupales: las 3 últimas + ver más ---
   h += '<h2>👥 Observaciones grupales</h2>';
-  const lim = new Date(new Date(hoy + 'T12:00:00').getTime() - 7 * 86400000).toISOString().slice(0, 10);
-  const gr = D.grupal.filter(x => VER_MAS_G || x.iso >= lim);
-  if (!gr.length) h += '<p class="vacia">Sin observaciones grupales en los últimos 7 días.</p>';
+  const gr = VER_MAS_G ? D.grupal : D.grupal.slice(0, 3);
+  if (!gr.length) h += '<p class="vacia">Todavía no hay observaciones grupales.</p>';
   gr.forEach(x => h += '<div class="tarjeta"><div class="cab">' + dnom(x.iso, x.dow) + ' · ' + x.turno + (x.doc ? ' · ' + esc(x.doc) : '') + '</div><div class="tx">' + esc(x.txt) + '</div></div>');
-  if (!VER_MAS_G && D.grupal.some(x => x.iso < lim)) h += '<button class="mas" id="masG">Ver más anteriores</button>';
+  if (!VER_MAS_G && D.grupal.length > 3) h += '<button class="mas" id="masG">Ver más anteriores (' + (D.grupal.length - 3) + ')</button>';
   h += pendientesHtml();
   if (rapida) h += '<div class="fuente">⚡ Vista rápida · confirmando…</div>';
   $('app').innerHTML = h;
