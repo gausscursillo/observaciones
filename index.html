@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gauss · Observaciones de grupos</title>
+<style>
+  :root { --rojo:#c0392b; --amar:#fff2cc; --amar2:#ffd966; --gris:#f3f4f6; --txt:#1f2937; --suave:#6b7280; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:#fafafa; color:var(--txt); }
+  header { background:var(--rojo); color:#fff; padding:12px 14px; position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:10px; }
+  header h1 { font-size:17px; margin:0; flex:1; }
+  header button { background:rgba(255,255,255,.2); color:#fff; border:0; border-radius:8px; padding:6px 10px; font-size:14px; }
+  main { padding:14px; max-width:720px; margin:0 auto; padding-bottom:90px; }
+  h2 { font-size:15px; margin:18px 0 8px; color:var(--rojo); }
+  .cat { font-size:13px; font-weight:700; text-transform:uppercase; color:var(--suave); margin:18px 0 8px; letter-spacing:.04em; }
+  .burbujas { display:flex; flex-wrap:wrap; gap:10px; }
+  .burbuja { background:#fff; border:2px solid var(--rojo); color:var(--txt); border-radius:18px; padding:10px 14px; min-width:120px; text-align:left; font-size:15px; cursor:pointer; }
+  .burbuja b { display:block; font-size:16px; }
+  .burbuja small { color:var(--suave); }
+  .burbuja.nueva { background:var(--amar); }
+  .tarjeta { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; margin-bottom:8px; }
+  .tarjeta.clase { background:var(--amar); border-color:var(--amar2); }
+  .tarjeta .cab { font-size:13px; color:var(--suave); margin-bottom:4px; }
+  .tarjeta .tx { white-space:pre-wrap; font-size:15px; }
+  .vacia { color:var(--suave); font-style:italic; }
+  .franja { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; }
+  .dia { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:8px 10px; min-width:170px; flex:0 0 auto; }
+  .dia.hoy { border:2px solid var(--rojo); }
+  .dia h3 { margin:0 0 4px; font-size:14px; }
+  .dia .t { font-size:13px; margin-top:4px; }
+  .dia .t b { font-size:12px; color:var(--suave); display:block; text-transform:uppercase; }
+  .dia .sin { color:var(--suave); }
+  .mas { display:block; margin:8px auto; background:none; border:1px solid var(--suave); color:var(--suave); border-radius:20px; padding:6px 14px; font-size:14px; }
+  .fab { position:fixed; right:14px; bottom:14px; background:var(--rojo); color:#fff; border:0; border-radius:28px; padding:14px 18px; font-size:16px; box-shadow:0 3px 10px rgba(0,0,0,.3); z-index:6; }
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; justify-content:center; z-index:10; }
+  .modal.on { display:flex; }
+  .hoja { background:#fff; width:100%; max-width:560px; border-radius:18px 18px 0 0; padding:16px; max-height:92vh; overflow:auto; }
+  label { display:block; font-size:13px; color:var(--suave); margin:10px 0 4px; }
+  select, input, textarea { width:100%; font-size:16px; padding:9px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; }
+  textarea { min-height:120px; }
+  .fila2 { display:flex; gap:8px; } .fila2 > * { flex:1; }
+  .opc { display:flex; gap:8px; } .opc label { flex:1; margin:0; border:2px solid #cbd5e1; border-radius:10px; padding:10px; color:var(--txt); font-size:14px; text-align:center; }
+  .opc input { display:none; } .opc input:checked + span { font-weight:700; }
+  .opc label:has(input:checked) { border-color:var(--rojo); background:#fdecea; }
+  .botones { display:flex; gap:8px; margin-top:14px; }
+  .botones button { flex:1; padding:12px; font-size:16px; border-radius:10px; border:0; }
+  .ok { background:var(--rojo); color:#fff; } .no { background:#e5e7eb; }
+  .msg { padding:10px 12px; border-radius:10px; margin:10px 0; font-size:14px; }
+  .msg.err { background:#fdecea; color:#922; } .msg.av { background:var(--amar); } .msg.bien { background:#e6f4ea; color:#1e6b34; }
+  .login { max-width:340px; margin:60px auto; text-align:center; }
+  .login input { text-align:center; margin:12px 0; }
+  .login button { width:100%; padding:12px; font-size:16px; border:0; border-radius:10px; background:var(--rojo); color:#fff; }
+  .fuente { font-size:12px; color:var(--suave); text-align:center; margin-top:14px; }
+</style>
+</head>
+<body>
+<header>
+  <button id="atras" style="display:none">←</button>
+  <h1 id="titulo">Observaciones de grupos</h1>
+  <button id="refrescar" style="display:none" title="Actualizar">🔄</button>
+</header>
+<main id="app"></main>
+<button class="fab" id="fab" style="display:none">＋ Observación</button>
+
+<div class="modal" id="modal"><div class="hoja">
+  <h2 style="margin-top:0">Agregar observación</h2>
+  <div class="opc">
+    <label><input type="radio" name="tipo" value="clase" checked><span>📝 De la clase<br><small>qué faltó / desde dónde seguir</small></span></label>
+    <label><input type="radio" name="tipo" value="grupal"><span>👥 Del grupo<br><small>algo de todo el grupo</small></span></label>
+  </div>
+  <div class="fila2">
+    <div><label>Fecha de la clase</label><input type="date" id="f_fecha"></div>
+    <div><label>Turno</label><select id="f_turno"><option>Mañana</option><option>Tarde</option></select></div>
+  </div>
+  <label>Profe que carga</label><select id="f_prof"></select>
+  <label>Observación</label><textarea id="f_texto" placeholder="Ej.: No terminé triángulos, faltan 2 teoremas. Seguir desde el teorema 4."></textarea>
+  <div id="f_msg"></div>
+  <div class="botones"><button class="no" id="f_cancel">Cancelar</button><button class="ok" id="f_send">Guardar</button></div>
+</div></div>
+
+<script>
+// ======== CONFIGURACIÓN (completar al subir el repo) ========
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxkJKfreWnlk8OZjS18maXcKNO4UblFEiaOwcBpe2VZYm5fs3CmlKEjwNqETak_ObJa/exec';   // el mismo link /exec que usa el panel-csa
+const SB_URL = 'https://heycvwxaewjbwbusddqg.supabase.co';
+const SB_KEY = 'sb_publishable_MpClcQrbgiAtqcsaa5js3w_XCYqHztI';       // publishable: puede ir en GitHub
+// ============================================================
+
+const $ = id => document.getElementById(id);
+const DIAS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+let PIN = store.get('gp_pin') || '', INICIO = null, GRUPO = null, DATOS = null, VER_MAS_C = false, VER_MAS_G = false;
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dm = iso => { const p = iso.split('-'); return Number(p[2]) + '/' + Number(p[1]); };
+const dnom = (iso, dow) => DIAS[dow] + ' ' + dm(iso);
+const dow = iso => new Date(iso + 'T12:00:00').getDay();
+
+async function gas(accion, params) {
+  const u = new URL(GAS_URL);
+  u.searchParams.set('accion', accion); u.searchParams.set('pin', PIN);
+  Object.keys(params || {}).forEach(k => u.searchParams.set(k, params[k]));
+  const r = await fetch(u.toString()); const j = await r.json();
+  if (j && j.error) throw new Error(j.error.replace(/^PIN: /, ''));
+  return j;
+}
+async function gasPost(accion, params) {
+  const r = await fetch(GAS_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(Object.assign({ accion: accion, pin: PIN }, params)) });
+  const j = await r.json();
+  if (j && j.error) throw new Error(j.error.replace(/^PIN: /, ''));
+  return j;
+}
+// Copia rápida (Supabase); si falla, devuelve null y se usa la planilla.
+async function copia(tipo, clave) {
+  try {
+    const r = await fetch(SB_URL + '/rest/v1/rpc/gauss_leer', { method:'POST', headers:{ apikey: SB_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ p_pin: PIN, p_tipo: tipo, p_clave: clave }) });
+    if (!r.ok) return null;
+    let j = await r.json();
+    if (j && typeof j === 'object' && 'datos' in j && Object.keys(j).length <= 3) j = j.datos;
+    return j && typeof j === 'object' && !j.message && !j.error ? j : null;
+  } catch (e) { return null; }
+}
+
+// ---------- LOGIN ----------
+function pantallaLogin(err) {
+  $('atras').style.display = 'none'; $('refrescar').style.display = 'none'; $('fab').style.display = 'none';
+  $('titulo').textContent = 'Observaciones de grupos';
+  $('app').innerHTML = '<div class="login"><h2>Ingresá el PIN de profes</h2>' +
+    (err ? '<div class="msg err">' + esc(err) + '</div>' : '') +
+    '<input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN"><button id="entrar">Entrar</button></div>';
+  $('entrar').onclick = async () => { PIN = $('pin').value.trim(); $('entrar').textContent = 'Entrando…'; await inicio(true); };
+  $('pin').onkeydown = e => { if (e.key === 'Enter') $('entrar').click(); };
+}
+
+// ---------- INICIO: burbujas ----------
+async function inicio(desdeLogin) {
+  GRUPO = null; $('atras').style.display = 'none'; $('fab').style.display = 'none'; $('refrescar').style.display = '';
+  $('titulo').textContent = 'Observaciones de grupos';
+  if (!PIN) return pantallaLogin();
+  const c = await copia('profGrupos', 'todo');
+  if (c && c.grupos) { INICIO = c; dibujarInicio(true); }
+  else $('app').innerHTML = '<p class="vacia">Cargando…</p>';
+  try {
+    const j = await gas('profGrupos');
+    if (!c || JSON.stringify(c) !== JSON.stringify(j)) { INICIO = j; if (!GRUPO) dibujarInicio(false); }
+    store.set('gp_pin', PIN);
+  } catch (e) {
+    if (/PIN/i.test(e.message)) { store.del('gp_pin'); PIN = ''; return pantallaLogin(e.message); }
+    if (!INICIO) $('app').innerHTML = '<div class="msg err">' + esc(e.message) + '</div>';
+  }
+}
+function dibujarInicio(rapida) {
+  const I = INICIO, hoy = I.hoy; let h = '';
+  I.cats.forEach((cat, ci) => {
+    const gs = I.grupos.filter(g => g.cat === ci); if (!gs.length) return;
+    h += '<div class="cat">' + esc(cat) + '</div><div class="burbujas">';
+    gs.forEach(g => {
+      const reciente = g.ult && (new Date(hoy) - new Date(g.ult)) / 86400000 <= 1;
+      h += '<button class="burbuja' + (reciente ? ' nueva' : '') + '" data-g="' + esc(g.n) + '"><b>' + esc(g.n) + '</b><small>' +
+        (g.ult ? 'Última obs.: ' + dnom(g.ult, dow(g.ult)) : 'Sin observaciones') + '</small></button>';
+    });
+    h += '</div>';
+  });
+  if (!h) h = '<p class="vacia">No hay grupos para mostrar.</p>';
+  if (rapida) h += '<div class="fuente">⚡ Vista rápida · confirmando…</div>';
+  $('app').innerHTML = h;
+  document.querySelectorAll('.burbuja').forEach(b => b.onclick = () => abrirGrupo(b.dataset.g));
+}
+
+// ---------- GRUPO ----------
+async function abrirGrupo(g) {
+  GRUPO = g; VER_MAS_C = false; VER_MAS_G = false; DATOS = null;
+  $('atras').style.display = ''; $('fab').style.display = ''; $('refrescar').style.display = '';
+  $('titulo').textContent = g; $('app').innerHTML = '<p class="vacia">Cargando…</p>';
+  const c = await copia('profGrupo', g);
+  if (c && c.clase && GRUPO === g) { DATOS = c; dibujarGrupo(true); }
+  await recargarGrupo(g);
+}
+async function recargarGrupo(g) {
+  try {
+    const j = await gas('profGrupo', { grupo: g });
+    if (GRUPO !== g) return;
+    if (!DATOS || JSON.stringify(DATOS) !== JSON.stringify(j)) { DATOS = j; dibujarGrupo(false); }
+    else dibujarGrupo(false);
+  } catch (e) { if (!DATOS) $('app').innerHTML = '<div class="msg err">' + esc(e.message) + '</div>'; }
+}
+function dibujarGrupo(rapida) {
+  const D = DATOS, hoy = D.hoy; let h = '';
+  // --- franja del horario: 2 días de clase atrás, hoy, 2 adelante ---
+  const porDia = {};
+  D.horario.forEach(x => { (porDia[x.iso] = porDia[x.iso] || []).push(x); });
+  const conClase = Object.keys(porDia).filter(d => porDia[d].some(x => x.tipo !== 'Sin clase')).sort();
+  const antes = conClase.filter(d => d < hoy).slice(-2), despues = conClase.filter(d => d > hoy).slice(0, 2);
+  const dias = antes.concat(conClase.indexOf(hoy) >= 0 ? [hoy] : [], despues);
+  h += '<h2>📅 Horario</h2>';
+  if (!dias.length) h += '<p class="vacia">El horario de Carlos de estos días todavía no está cargado.</p>';
+  else {
+    h += '<div class="franja">';
+    dias.forEach(d => {
+      h += '<div class="dia' + (d === hoy ? ' hoy' : '') + '"><h3>' + dnom(d, dow(d)) + (d === hoy ? ' · hoy' : d < hoy ? ' · ya fue' : '') + '</h3>';
+      ['Mañana','Tarde'].forEach(t => {
+        const it = porDia[d].filter(x => x.turno === t);
+        h += '<div class="t"><b>' + t + '</b>';
+        if (!it.length) h += '<span class="sin">—</span>';
+        it.forEach(x => {
+          if (x.tipo === 'Sin clase') h += '<span class="sin">Sin clase' + (x.txt ? ': ' + esc(x.txt) : '') + '</span>';
+          else h += (x.tipo === 'Examen' ? '📝 Examen · ' : '') + esc(x.mat || '') + (x.txt ? '<br>' + esc(x.txt) : '') + (x.doc ? '<br><small>' + esc(x.doc) + '</small>' : '');
+        });
+        h += '</div>';
+      });
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+  // --- observaciones de la clase ---
+  h += '<h2>📝 Observación de la clase</h2>';
+  const notasPorDia = {}; D.clase.forEach(x => { (notasPorDia[x.iso] = notasPorDia[x.iso] || []).push(x); });
+  const turnosDia = {}; D.turnos.forEach(x => { (turnosDia[x.iso] = turnosDia[x.iso] || {})[x.turno] = 1; });
+  Object.keys(porDia).forEach(d => porDia[d].forEach(x => { if (x.tipo !== 'Sin clase') (turnosDia[d] = turnosDia[d] || {})[x.turno] = 1; }));
+  Object.keys(notasPorDia).forEach(d => notasPorDia[d].forEach(x => { (turnosDia[d] = turnosDia[d] || {})[x.turno] = 1; }));
+  const diasCon = Object.keys(notasPorDia).sort().reverse();
+  const ref = diasCon.find(d => d <= hoy);
+  // días de clase posteriores al último con nota (hasta hoy): "sin observación"
+  const sinNota = Object.keys(turnosDia).filter(d => d <= hoy && (!ref || d > ref)).sort().reverse();
+  const bloqueDia = (d) => {
+    let b = '<div class="cab" style="margin-top:8px"><b>' + dnom(d, dow(d)) + (d === hoy ? ' · hoy' : '') + '</b></div>';
+    ['Tarde','Mañana'].forEach(t => {
+      const ns = (notasPorDia[d] || []).filter(x => x.turno === t);
+      if (!ns.length && !(turnosDia[d] || {})[t]) return;
+      if (!ns.length) b += '<div class="tarjeta clase"><div class="cab">' + t + '</div><div class="vacia">Sin observación</div></div>';
+      ns.forEach(x => { b += '<div class="tarjeta clase"><div class="cab">' + t + (x.mat ? ' · ' + esc(x.mat) : '') + (x.doc ? ' · ' + esc(x.doc) : '') + '</div><div class="tx">' + esc(x.txt) + '</div></div>'; });
+    });
+    return b;
+  };
+  if (!ref && !sinNota.length) h += '<p class="vacia">Todavía no hay observaciones de la clase para este grupo.</p>';
+  sinNota.forEach(d => h += bloqueDia(d));
+  if (ref) h += bloqueDia(ref);
+  const mas = diasCon.filter(d => d < (ref || '9999'));
+  if (mas.length) {
+    if (VER_MAS_C) mas.forEach(d => h += bloqueDia(d));
+    else h += '<button class="mas" id="masC">Ver más anteriores (' + mas.length + ' días)</button>';
+  }
+  // --- grupales: 7 días ---
+  h += '<h2>👥 Observaciones grupales</h2>';
+  const lim = new Date(new Date(hoy + 'T12:00:00').getTime() - 7 * 86400000).toISOString().slice(0, 10);
+  const gr = D.grupal.filter(x => VER_MAS_G || x.iso >= lim);
+  if (!gr.length) h += '<p class="vacia">Sin observaciones grupales en los últimos 7 días.</p>';
+  gr.forEach(x => h += '<div class="tarjeta"><div class="cab">' + dnom(x.iso, x.dow) + ' · ' + x.turno + (x.doc ? ' · ' + esc(x.doc) : '') + '</div><div class="tx">' + esc(x.txt) + '</div></div>');
+  if (!VER_MAS_G && D.grupal.some(x => x.iso < lim)) h += '<button class="mas" id="masG">Ver más anteriores</button>';
+  h += pendientesHtml();
+  if (rapida) h += '<div class="fuente">⚡ Vista rápida · confirmando…</div>';
+  $('app').innerHTML = h;
+  if ($('masC')) $('masC').onclick = () => { VER_MAS_C = true; dibujarGrupo(false); };
+  if ($('masG')) $('masG').onclick = () => { VER_MAS_G = true; dibujarGrupo(false); };
+  if ($('reenviar')) $('reenviar').onclick = enviarPendientes;
+}
+
+// ---------- AGREGAR OBSERVACIÓN ----------
+const pend = () => { try { return JSON.parse(store.get('gp_pend') || '[]'); } catch (e) { return []; } };
+const guardarPend = a => store.set('gp_pend', JSON.stringify(a));
+function pendientesHtml() {
+  const p = pend(); if (!p.length) return '';
+  return '<div class="msg av">⏳ Tenés ' + p.length + ' observación(es) sin enviar. <button id="reenviar" class="mas" style="display:inline-block;margin:6px 0 0">Reintentar</button></div>';
+}
+function hoyLocal() { return DATOS ? DATOS.hoy : new Date().toISOString().slice(0, 10); }
+$('fab').onclick = () => {
+  const profes = (INICIO && INICIO.profes) || [];
+  const ult = store.get('gp_prof') || '';
+  $('f_prof').innerHTML = '<option value="">— elegí —</option>' + profes.map(p => '<option' + (p === ult ? ' selected' : '') + '>' + esc(p) + '</option>').join('');
+  $('f_fecha').value = hoyLocal();
+  $('f_turno').value = new Date().getHours() < 13 ? 'Mañana' : 'Tarde';
+  $('f_texto').value = store.get('gp_borrador_' + GRUPO) || '';
+  $('f_msg').innerHTML = ''; $('modal').classList.add('on');
+};
+$('f_cancel').onclick = () => { store.set('gp_borrador_' + GRUPO, $('f_texto').value); $('modal').classList.remove('on'); };
+$('f_texto').oninput = () => store.set('gp_borrador_' + GRUPO, $('f_texto').value);
+$('f_send').onclick = async () => {
+  const o = { id: 'W' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), grupo: GRUPO,
+    tipo: document.querySelector('input[name=tipo]:checked').value, fecha: $('f_fecha').value, turno: $('f_turno').value,
+    docente: $('f_prof').value, texto: $('f_texto').value.trim() };
+  if (!o.docente) return ($('f_msg').innerHTML = '<div class="msg err">Elegí quién carga la observación.</div>');
+  if (!o.texto) return ($('f_msg').innerHTML = '<div class="msg err">Escribí la observación.</div>');
+  store.set('gp_prof', o.docente);
+  const p = pend(); p.push(o); guardarPend(p);          // queda guardada en el aparato hasta que el servidor confirme
+  $('f_send').disabled = true; $('f_send').textContent = 'Guardando…';
+  const r = await enviarUna(o);
+  $('f_send').disabled = false; $('f_send').textContent = 'Guardar';
+  if (r.ok) {
+    store.del('gp_borrador_' + GRUPO); $('modal').classList.remove('on'); $('f_texto').value = '';
+    await recargarGrupo(GRUPO);
+    if (r.aviso) alertaSuave(r.aviso);
+  } else $('f_msg').innerHTML = '<div class="msg err">No se pudo guardar: ' + esc(r.error) + '<br>Tu texto quedó guardado en este celular; podés reintentar.</div>';
+};
+async function enviarUna(o) {
+  try {
+    const j = await gasPost('profGuardar', o);
+    guardarPend(pend().filter(x => x.id !== o.id));
+    return { ok: true, aviso: j.aviso || '' };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+async function enviarPendientes() {
+  for (const o of pend()) { const r = await enviarUna(o); if (!r.ok) { alertaSuave('No se pudo enviar: ' + r.error); break; } }
+  if (GRUPO) await recargarGrupo(GRUPO);
+}
+function alertaSuave(t) {
+  const d = document.createElement('div'); d.className = 'msg av'; d.textContent = t; $('app').prepend(d); setTimeout(() => d.remove(), 9000);
+}
+
+// ---------- NAVEGACIÓN ----------
+$('atras').onclick = () => { GRUPO = null; if (INICIO) { $('atras').style.display = 'none'; $('fab').style.display = 'none'; $('titulo').textContent = 'Observaciones de grupos'; dibujarInicio(false); inicio(); } else inicio(); };
+$('refrescar').onclick = () => { if (GRUPO) recargarGrupo(GRUPO); else inicio(); };
+document.addEventListener('visibilitychange', () => { if (!document.hidden && pend().length && PIN) enviarPendientes(); });
+inicio();
+</script>
+</body>
+</html>
