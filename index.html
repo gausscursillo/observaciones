@@ -104,10 +104,16 @@ async function gas(accion, params) {
   const u = new URL(GAS_URL);
   u.searchParams.set('accion', accion); u.searchParams.set('pin', PIN);
   Object.keys(params || {}).forEach(k => u.searchParams.set(k, params[k]));
-  const r = await fetch(u.toString()); const j = await r.json();
-  if (j && j.error) throw new Error(j.error.replace(/^PIN: /, ''));
-  return j;
+  const ac = new AbortController(), to = setTimeout(() => ac.abort(), 30000);   // si la planilla no responde en 30 s, se corta
+  try {
+    const r = await fetch(u.toString(), { signal: ac.signal }); const j = await r.json();
+    if (j && j.error) throw new Error(j.error.replace(/^PIN: /, ''));
+    return j;
+  } catch (e) { if (e && e.name === 'AbortError') throw new Error('La planilla tardó demasiado en responder'); throw e; }
+  finally { clearTimeout(to); }
 }
+// Si no se pudo confirmar, el aviso de "confirmando…" pasa a decir la verdad.
+function sinConfirmar() { const f = document.querySelector('.fuente'); if (f) f.textContent = '⚡ Vista rápida · no se pudo confirmar con la planilla (tocá 🔄 para reintentar)'; }
 async function gasPost(accion, params) {
   const r = await fetch(GAS_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(Object.assign({ accion: accion, pin: PIN }, params)) });
   const j = await r.json();
@@ -147,11 +153,12 @@ async function inicio(desdeLogin) {
   else $('app').innerHTML = '<p class="vacia">Cargando…</p>';
   try {
     const j = await gas('profGrupos');
-    if (!c || JSON.stringify(c) !== JSON.stringify(j)) { INICIO = j; if (!GRUPO) dibujarInicio(false); }
+    INICIO = j; if (!GRUPO) dibujarInicio(false);      // siempre se redibuja: así desaparece el aviso "confirmando…"
     store.set('gp_pin', PIN);
   } catch (e) {
     if (/PIN/i.test(e.message)) { store.del('gp_pin'); PIN = ''; return pantallaLogin(e.message); }
     if (!INICIO) $('app').innerHTML = '<div class="msg err">' + esc(e.message) + '</div>';
+    else if (!GRUPO) sinConfirmar();
   }
 }
 function dibujarInicio(rapida) {
@@ -185,9 +192,8 @@ async function recargarGrupo(g) {
   try {
     const j = await gas('profGrupo', { grupo: g });
     if (GRUPO !== g) return;
-    if (!DATOS || JSON.stringify(DATOS) !== JSON.stringify(j)) { DATOS = j; dibujarGrupo(false); }
-    else dibujarGrupo(false);
-  } catch (e) { if (!DATOS) $('app').innerHTML = '<div class="msg err">' + esc(e.message) + '</div>'; }
+    DATOS = j; dibujarGrupo(false);
+  } catch (e) { if (!DATOS) $('app').innerHTML = '<div class="msg err">' + esc(e.message) + '</div>'; else if (GRUPO === g) sinConfirmar(); }
 }
 function dibujarGrupo(rapida) {
   const D = DATOS, hoy = D.hoy; let h = '';
