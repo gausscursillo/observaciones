@@ -31,6 +31,20 @@
   .dia .t { font-size:13px; margin-top:4px; }
   .dia .t b { font-size:12px; color:var(--suave); display:block; text-transform:uppercase; }
   .dia .sin { color:var(--suave); }
+    .semwrap { overflow-x:auto; padding-bottom:6px; }
+  table.sem { border-collapse:collapse; table-layout:fixed; width:100%; min-width:640px; background:#fff; }
+  table.sem th, table.sem td { border:1px solid #d1d5db; vertical-align:top; }
+  table.sem thead th { background:var(--rojo); color:#fff; font-size:12.5px; padding:5px 3px; text-align:center; }
+  table.sem thead th small { display:block; font-weight:400; opacity:.9; }
+  table.sem thead th.hoy { background:#8e2a1f; }
+  table.sem th.turno { width:26px; background:#e8efdc; color:#374151; font-size:12px; padding:2px; text-align:center; font-weight:700; letter-spacing:.08em; }
+  table.sem th.turno span { writing-mode:vertical-rl; transform:rotate(180deg); display:inline-block; }
+  table.sem td { padding:6px 7px; font-size:12.5px; line-height:1.35; word-break:break-word; min-width:0; height:78px; }
+  table.sem td.vac { background:#dde5f0; }
+  table.sem td.exa { background:#fff9b0; }
+  table.sem td.sin { background:#eef0f3; color:var(--suave); }
+  table.sem td p { margin:0 0 5px; } table.sem td p:last-child { margin:0; }
+  table.sem td .ex { display:block; font-size:11px; font-weight:700; color:#8a6d00; margin-bottom:2px; }
   .mas { display:block; margin:8px auto; background:none; border:1px solid var(--suave); color:var(--suave); border-radius:20px; padding:6px 14px; font-size:14px; }
   .fab { position:fixed; right:14px; bottom:14px; background:var(--rojo); color:#fff; border:0; border-radius:28px; padding:14px 18px; font-size:16px; box-shadow:0 3px 10px rgba(0,0,0,.3); z-index:6; }
   .modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-end; justify-content:center; z-index:10; }
@@ -195,34 +209,61 @@ async function recargarGrupo(g) {
     DATOS = j; dibujarGrupo(false);
   } catch (e) { if (!DATOS) $('app').innerHTML = '<div class="msg err">' + esc(e.message) + '</div>'; else if (GRUPO === g) sinConfirmar(); }
 }
+
+// ---------- HORARIO DE LA SEMANA (lunes a viernes, como en el Excel, sin el nombre del profe) ----------
+const isoMas = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const reEsc = x => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Borra el nombre del profe cuando está al final del texto (solo si coincide con el profe cargado en esa clase).
+function sinProfe(txt, doc) {
+  let t = String(txt || '').replace(/\s+$/, '');
+  const d = String(doc || '').trim();
+  if (d) t = t.replace(new RegExp('(^|[\\s,;/·-])' + reEsc(d) + '[\\s.]*$', 'i'), '').replace(/\s+$/, '');
+  return t;
+}
+// "FISICA. Examen" → <b>FISICA.</b> Examen ; "TAREA: …" → <b>TAREA:</b> …
+function textoCelda(txt, mat) {
+  const m = /^([A-ZÁÉÍÓÚÑ0-9][A-ZÁÉÍÓÚÑ0-9 ]{2,}?[.:])\s*([\s\S]*)$/.exec(txt);
+  if (m) return '<b>' + esc(m[1]) + '</b> ' + esc(m[2]);
+  if (mat && txt.toLowerCase().indexOf(String(mat).toLowerCase()) !== 0) return '<b>' + esc(mat) + '.</b> ' + esc(txt);
+  return esc(txt || mat || '');
+}
+function horarioSemana(D) {
+  const hoy = D.hoy, dw = dow(hoy);
+  // lunes de la semana (sábado y domingo muestran la semana que viene)
+  const lunes = isoMas(hoy, dw === 0 ? 1 : dw === 6 ? 2 : 1 - dw);
+  const dias = [0, 1, 2, 3, 4].map(i => isoMas(lunes, i));
+  const NOM = ['LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES'];
+  const items = (D.horario || []).filter(x => dias.indexOf(x.iso) >= 0);
+  if (!items.length) return '<p class="vacia">El horario de esta semana todavía no está cargado.</p>';
+  let h = '<div class="semwrap"><table class="sem"><thead><tr><th class="turno"></th>';
+  dias.forEach((d, i) => { h += '<th class="' + (d === hoy ? 'hoy' : '') + '">' + NOM[i] + '<small>' + dm(d) + (d === hoy ? ' · hoy' : '') + '</small></th>'; });
+  h += '</tr></thead><tbody>';
+  ['Mañana', 'Tarde'].forEach(t => {
+    h += '<tr><th class="turno"><span>' + t.toUpperCase() + '</span></th>';
+    dias.forEach(d => {
+      const it = items.filter(x => x.iso === d && x.turno === t);
+      if (!it.length) return (h += '<td class="vac"></td>');
+      const exa = it.some(x => x.tipo === 'Examen'), sin = !exa && it.every(x => x.tipo === 'Sin clase');
+      h += '<td class="' + (exa ? 'exa' : sin ? 'sin' : '') + '">';
+      it.forEach(x => {
+        const txt = sinProfe(x.txt, x.doc);
+        if (x.tipo === 'Sin clase') h += '<p>Sin clase' + (txt ? ': ' + esc(txt) : '') + '</p>';
+        else h += '<p>' + (x.tipo === 'Examen' ? '<span class="ex">📝 EXAMEN</span>' : '') + textoCelda(txt, x.mat) + '</p>';
+      });
+      h += '</td>';
+    });
+    h += '</tr>';
+  });
+  return h + '</tbody></table></div>';
+}
+
 function dibujarGrupo(rapida) {
   const D = DATOS, hoy = D.hoy; let h = '';
   // --- franja del horario: 2 días de clase atrás, hoy, 2 adelante ---
   const porDia = {};
   D.horario.forEach(x => { (porDia[x.iso] = porDia[x.iso] || []).push(x); });
-  const conClase = Object.keys(porDia).filter(d => porDia[d].some(x => x.tipo !== 'Sin clase')).sort();
-  const antes = conClase.filter(d => d < hoy).slice(-2), despues = conClase.filter(d => d > hoy).slice(0, 2);
-  const dias = antes.concat(conClase.indexOf(hoy) >= 0 ? [hoy] : [], despues);
-  h += '<h2>📅 Horario</h2>';
-  if (!dias.length) h += '<p class="vacia">El horario todavía no está cargado.</p>';
-  else {
-    h += '<div class="franja">';
-    dias.forEach(d => {
-      h += '<div class="dia' + (d === hoy ? ' hoy' : '') + '"><h3>' + dnom(d, dow(d)) + (d === hoy ? ' · hoy' : d < hoy ? ' · ya fue' : '') + '</h3>';
-      ['Mañana','Tarde'].forEach(t => {
-        const it = porDia[d].filter(x => x.turno === t);
-        h += '<div class="t"><b>' + t + '</b>';
-        if (!it.length) h += '<span class="sin">—</span>';
-        it.forEach(x => {
-          if (x.tipo === 'Sin clase') h += '<span class="sin">Sin clase' + (x.txt ? ': ' + esc(x.txt) : '') + '</span>';
-          else h += (x.tipo === 'Examen' ? '📝 Examen · ' : '') + esc(x.mat || '') + (x.txt ? '<br>' + esc(x.txt) : '') + (x.doc ? '<br><small>' + esc(x.doc) + '</small>' : '');
-        });
-        h += '</div>';
-      });
-      h += '</div>';
-    });
-    h += '</div>';
-  }
+  h += '<h2>📅 Horario</h2>' + horarioSemana(D);
   // --- observaciones de la clase ---
   h += '<h2>📝 Observación de la clase</h2>';
   const notasPorDia = {}; D.clase.forEach(x => { (notasPorDia[x.iso] = notasPorDia[x.iso] || []).push(x); });
